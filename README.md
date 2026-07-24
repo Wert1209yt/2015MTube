@@ -1,7 +1,7 @@
 <h1 align="center">2015MTube</h1>
 This project revives the YouTube mobile web client (m.youtube.com) by recreating its API.
 
-![Home](images/1.png)
+![Home](images/1.jpg)
 ![Watch](images/2.png)
 ![Search](images/3.png)
 ![Channel](images/4.png)
