@@ -243,50 +243,41 @@ function handle_feed($params) {
     $cacheKey = 'feed_' . ($params['ctoken'] ?? '');
     if ($cached = cache_get($cacheKey)) return $cached;
 
-    $shelves = [];
+    $sections = [];
 
-    $popular = youtube_api('search', [
-        'part' => 'snippet',
-        'type' => 'video',
-        'order' => 'viewCount',
+    // 1. Popular Right Now (через chart=mostPopular)
+    $popular = youtube_api('videos', [
+        'part' => 'snippet,contentDetails,statistics',
+        'chart' => 'mostPopular',
         'maxResults' => 10,
-        'regionCode' => 'US',
-        'publishedAfter' => date('Y-m-d\TH:i:s\Z', strtotime('-7 days'))
+        'regionCode' => 'US'
     ]);
 
+    $videos = [];
     if (!isset($popular['error']) && !empty($popular['items'])) {
-        $videos = [];
-        $videoIds = array_map(function($i) { return $i['id']['videoId']; }, $popular['items']);
-        // Получаем детали только если есть ID
-        if (!empty($videoIds)) {
-            $details = youtube_api('videos', ['part' => 'contentDetails,statistics,snippet', 'id' => implode(',', $videoIds)]);
-            $vidDetails = [];
-            foreach ($details['items'] ?? [] as $v) {
-                $vidDetails[$v['id']] = [
-                    'duration' => iso8601_to_seconds($v['contentDetails']['duration']),
-                    'viewCount' => $v['statistics']['viewCount'] ?? 0,
-                    'isLive' => ($v['snippet']['liveBroadcastContent'] ?? 'none') === 'live'
-                ];
-            }
-            foreach ($popular['items'] as $item) {
-                $vid = $item['id']['videoId'];
-                $d = $vidDetails[$vid] ?? ['duration' => 0, 'viewCount' => 0, 'isLive' => false];
-                $videos[] = build_compact_video(
-                    $vid,
-                    $item['snippet']['title'],
-                    $item['snippet']['channelTitle'],
-                    $item['snippet']['thumbnails']['default']['url'] ?? '',
-                    $d['duration'],
-                    $d['viewCount'],
-                    $d['isLive']
-                );
-            }
-        }
-        if (!empty($videos)) {
-            $shelves[] = build_shelf('Popular Right Now', $videos, '', '/playlist?list=PLrEnWoR732-B41pmZfHgpOLjpKChWaA5l');
+        foreach ($popular['items'] as $item) {
+            $videos[] = build_compact_video(
+                $item['id'],
+                $item['snippet']['title'],
+                $item['snippet']['channelTitle'],
+                $item['snippet']['thumbnails']['default']['url'] ?? '',
+                iso8601_to_seconds($item['contentDetails']['duration']),
+                $item['statistics']['viewCount'] ?? 0,
+                ($item['snippet']['liveBroadcastContent'] ?? 'none') === 'live'
+            );
         }
     }
 
+    if (!empty($videos)) {
+        $shelf = build_shelf('Popular Right Now', $videos, '', '/playlist?list=PLrEnWoR732-B41pmZfHgpOLjpKChWaA5l');
+        $sections[] = [
+            'item_type' => 'item_section',
+            'contents' => [$shelf],
+            'continuations' => []
+        ];
+    }
+
+    // 2. Just-Released Music Videos
     $music = youtube_api('search', [
         'part' => 'snippet',
         'type' => 'video',
@@ -295,8 +286,9 @@ function handle_feed($params) {
         'maxResults' => 10,
         'regionCode' => 'US'
     ]);
+
+    $videos = [];
     if (!isset($music['error']) && !empty($music['items'])) {
-        $videos = [];
         $videoIds = array_map(function($i) { return $i['id']['videoId']; }, $music['items']);
         if (!empty($videoIds)) {
             $details = youtube_api('videos', ['part' => 'contentDetails,statistics,snippet', 'id' => implode(',', $videoIds)]);
@@ -322,20 +314,33 @@ function handle_feed($params) {
                 );
             }
         }
-        if (!empty($videos)) {
-            $shelves[] = build_shelf('Just-Released Music Videos', $videos, 'Avicii leads the pack...', '/playlist?list=PLrEnWoR732-D67iteOI6DPdJH1opjAuJt');
-        }
     }
 
-    if (empty($shelves)) {
-        $shelves[] = build_shelf('No videos available', []);
+    if (!empty($videos)) {
+        $shelf = build_shelf('Just-Released Music Videos', $videos, 'Avicii leads the pack...', '/playlist?list=PLrEnWoR732-D67iteOI6DPdJH1opjAuJt');
+        $sections[] = [
+            'item_type' => 'item_section',
+            'contents' => [$shelf],
+            'continuations' => []
+        ];
     }
 
-    $section = build_item_section($shelves);
-    $continuations = [];
-    // ... (остальное без изменений)
+    // Заглушка, если ничего не найдено
+    if (empty($sections)) {
+        $shelf = build_shelf('No videos available', []);
+        $sections[] = [
+            'item_type' => 'item_section',
+            'contents' => [$shelf],
+            'continuations' => []
+        ];
+    }
 
-    $sectionList = build_section_list([$section], $continuations);
+    // Собираем section_list с массивом секций
+    $sectionList = [
+        'item_type' => 'section_list',
+        'contents' => $sections,
+        'continuations' => []
+    ];
 
     $response = [
         'result' => 'ok',
@@ -352,6 +357,7 @@ function handle_feed($params) {
             'survey' => null
         ]
     ];
+
     cache_set($cacheKey, $response);
     return $response;
 }
@@ -504,9 +510,10 @@ function handle_browse($params) {
         return ['result' => 'error', 'message' => 'Missing browse_id'];
     }
 
-    $cacheKey = 'browse_' . $browseId . '_' . ($params['tab'] ?? 'videos');
+    $cacheKey = 'browse_' . $browseId . '_' . ($params['tab'] ?? 'home');
     if ($cached = cache_get($cacheKey)) return $cached;
 
+    // Получение данных канала
     $channelData = youtube_api('channels', [
         'part' => 'snippet,statistics,brandingSettings',
         'id' => $browseId
@@ -519,12 +526,12 @@ function handle_browse($params) {
     $statistics = $channel['statistics'];
     $branding = $channel['brandingSettings']['channel'] ?? [];
 
-    $selectedTab = $params['tab'] ?? 'videos';
+    $selectedTab = $params['tab'] ?? 'home'; // по умолчанию Home
     $subscriberCount = (int)($statistics['subscriberCount'] ?? 0);
     $viewCount = (int)($statistics['viewCount'] ?? 0);
     $videoCount = (int)($statistics['videoCount'] ?? 0);
 
-    // --- Получение видео канала ---
+    // --- Получение видео канала (первые 20) ---
     $searchParams = [
         'part' => 'snippet',
         'channelId' => $browseId,
@@ -539,10 +546,11 @@ function handle_browse($params) {
     $videoItems = $searchData['items'] ?? [];
     $nextPageToken = $searchData['nextPageToken'] ?? null;
 
-    $videoIds = array_filter(array_map(function($i) { 
-        return $i['id']['videoId'] ?? null; 
+    // Детали видео
+    $videoIds = array_filter(array_map(function($i) {
+        return $i['id']['videoId'] ?? null;
     }, $videoItems));
-    
+
     $videoDetails = [];
     if (!empty($videoIds)) {
         $details = youtube_api('videos', [
@@ -557,14 +565,15 @@ function handle_browse($params) {
         }
     }
 
-    $videos = [];
+    // Строим список видео (объекты compact_video)
+    $allVideos = [];
     foreach ($videoItems as $item) {
         $vid = $item['id']['videoId'] ?? null;
         if (!$vid) continue;
         $d = $videoDetails[$vid] ?? ['duration' => 0, 'viewCount' => 0];
         $thumbnails = $item['snippet']['thumbnails'] ?? [];
         $thumbUrl = $thumbnails['default']['url'] ?? $thumbnails['medium']['url'] ?? '';
-        $videos[] = build_compact_video(
+        $allVideos[] = build_compact_video(
             $vid,
             $item['snippet']['title'] ?? 'Untitled',
             $item['snippet']['channelTitle'] ?? 'Unknown',
@@ -575,72 +584,7 @@ function handle_browse($params) {
         );
     }
 
-    if (empty($videos)) {
-        $videos[] = [
-            'item_type' => 'shelf',
-            'title' => fmt('No videos'),
-            'subtitle' => fmt('This channel has no videos yet'),
-            'content' => [
-                'item_type' => 'vertical_list',
-                'collapsed_item_count' => 1,
-                'items' => []
-            ]
-        ];
-    }
-
-    $videoSection = [
-        'item_type' => 'item_section',
-        'contents' => $videos,
-        'continuations' => []
-    ];
-    if ($nextPageToken) {
-        $videoSection['continuations'][] = [
-            'item_type' => 'next_continuation_data',
-            'click_tracking_params' => random_ctp(),
-            'continuation' => base64_encode($nextPageToken)
-        ];
-    }
-    $videoContent = [
-        'item_type' => 'section_list',
-        'contents' => [$videoSection],
-        'continuations' => []
-    ];
-
-    $aboutContent = null;
-    if ($selectedTab === 'about' || $selectedTab === 'channels') {
-        $aboutItems = [];
-        if (!empty($snippet['description'])) {
-            $aboutItems[] = [
-                'item_type' => 'channel_about_metadata',
-                'description' => fmt($snippet['description']),
-                'subscriber_count_text' => fmt(number_format($subscriberCount) . ' subscribers'),
-                'view_count_text' => fmt(number_format($viewCount) . ' views'),
-                'joined_date_text' => fmt('Joined ' . date('M d, Y', strtotime($snippet['publishedAt']))),
-                'country' => $snippet['country'] ?? '',
-                'primary_links' => [
-                    [
-                        'title' => 'YouTube Channel',
-                        'navigation_endpoint' => [
-                            'url' => '/channel/' . $browseId,
-                            'click_tracking_params' => random_ctp()
-                        ]
-                    ]
-                ],
-                'show_metadata' => []
-            ];
-        }
-        $aboutSection = [
-            'item_type' => 'item_section',
-            'contents' => $aboutItems,
-            'continuations' => []
-        ];
-        $aboutContent = [
-            'item_type' => 'section_list',
-            'contents' => [$aboutSection],
-            'continuations' => []
-        ];
-    }
-
+    // --- Плейлисты канала ---
     $playlistItems = [];
     $playlistsData = youtube_api('playlists', [
         'part' => 'snippet,contentDetails',
@@ -667,6 +611,52 @@ function handle_browse($params) {
             );
         }
     }
+
+    // --- Формирование полок для главной вкладки ---
+    $homeVideos = array_slice($allVideos, 0, 10);
+    $homePlaylists = array_slice($playlistItems, 0, 5);
+
+    $shelfVideos = build_shelf('Videos', $homeVideos);
+    $shelfPlaylists = build_shelf('Playlists', $homePlaylists);
+
+    // Содержимое для главной вкладки (section_list)
+    $homeSectionList = [
+        'item_type' => 'section_list',
+        'contents' => [
+            [
+                'item_type' => 'item_section',
+                'contents' => [$shelfVideos],
+                'continuations' => []
+            ],
+            [
+                'item_type' => 'item_section',
+                'contents' => [$shelfPlaylists],
+                'continuations' => []
+            ]
+        ],
+        'continuations' => []
+    ];
+
+    // --- Содержимое для вкладки "Videos" (полный список) ---
+    $videoSection = [
+        'item_type' => 'item_section',
+        'contents' => $allVideos,
+        'continuations' => []
+    ];
+    if ($nextPageToken) {
+        $videoSection['continuations'][] = [
+            'item_type' => 'next_continuation_data',
+            'click_tracking_params' => random_ctp(),
+            'continuation' => base64_encode($nextPageToken)
+        ];
+    }
+    $videoContent = [
+        'item_type' => 'section_list',
+        'contents' => [$videoSection],
+        'continuations' => []
+    ];
+
+    // --- Содержимое для вкладки "Playlists" (полный список) ---
     $playlistContent = null;
     if (!empty($playlistItems)) {
         $playlistSection = [
@@ -681,7 +671,21 @@ function handle_browse($params) {
         ];
     }
 
+    // --- Вкладки (tab_settings.available_tabs) ---
     $tabs = [];
+
+    // 1. Главная (Home)
+    $tabs[] = [
+        'title' => 'Home',
+        'selected' => ($selectedTab === 'home'),
+        'content' => $homeSectionList,
+        'endpoint' => [
+            'click_tracking_params' => random_ctp(),
+            'url' => '/browse?browse_id=' . $browseId . '&tab=home'
+        ]
+    ];
+
+    // 2. Видео (Videos)
     $tabs[] = [
         'title' => 'Videos',
         'selected' => ($selectedTab === 'videos'),
@@ -692,6 +696,7 @@ function handle_browse($params) {
         ]
     ];
 
+    // 3. Плейлисты (если есть)
     if (!empty($playlistItems)) {
         $tabs[] = [
             'title' => 'Playlists',
@@ -704,19 +709,7 @@ function handle_browse($params) {
         ];
     }
 
-    if (!empty($snippet['description'])) {
-        $tabs[] = [
-            'title' => 'About',
-            'selected' => ($selectedTab === 'about'),
-            'content' => $aboutContent,
-            'endpoint' => [
-                'click_tracking_params' => random_ctp(),
-                'url' => '/browse?browse_id=' . $browseId . '&tab=about'
-            ]
-        ];
-    }
-
-    // channel header
+    // --- Хедер канала (channel_header) ---
     $xsrfToken = 'QUFFLUhqa2NMbUdKTDZlZWl4aFBIVnQwN3FyTmc2M0hwQXxBQ3Jtc0trX044MG5iMHl6T0VLU1ljSUJ2dzB5a2ExX0Z2b1M3UjBmcVZpdXNoWVZEbjNQNjJYMUZEalJOOVIzR3RNdzZSQmxtWjBKWHhueDNzZXQ4QVNkcUZaRlg2Vno2TVhIaURwVWlyYmxEbHJYdllqOXRBRjBKc3NRV2lPUTZaZ0MtMjJDVkFXTnJaTllYZVZFNm1fUFNsWk5jbDlUbEE=';
 
     $header = [
@@ -743,7 +736,6 @@ function handle_browse($params) {
             'thumb_width' => 1280,
             'thumb_height' => 270
         ],
-
         'channel_url' => '/channel/' . $browseId,
         'banner_image' => $branding['bannerExternalUrl'] ?? '',
         'banner_image_hd' => $branding['bannerExternalUrl'] ?? '',
@@ -787,13 +779,14 @@ function handle_browse($params) {
         'description' => $snippet['description'] ?? ''
     ];
 
-    // metadata
+    // --- Metadata ---
     $metadata = [
         'tracking_image_url' => '',
         'channel_conversion_url' => '',
         'analytics_id' => ''
     ];
 
+    // --- Ответ ---
     $response = [
         'result' => 'ok',
         'conn' => 'wifi',
