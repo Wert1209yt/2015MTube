@@ -63,6 +63,43 @@ function random_ctp() {
     return 'IhMIzezrzOjgxQIVw7R+Ch38bgAL';
 }
 
+function get_dislike_count($videoId) {
+    $url = 'https://returnyoutubedislikeapi.com/votes?videoId=' . urlencode($videoId);
+
+    $context = stream_context_create([
+        'http' => [
+            'timeout' => 2,
+            'header' => "User-Agent: Mozilla/5.0 (compatible; PHP)\r\n"
+        ]
+    ]);
+    $response = @file_get_contents($url, false, $context);
+    
+    if ($response === false) {
+        if (function_exists('curl_init')) {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 2);
+            curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (compatible; PHP)');
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if ($httpCode !== 200 || $response === false) {
+                return 0;
+            }
+        } else {
+            return 0;
+        }
+    }
+    
+    $data = json_decode($response, true);
+    if (isset($data['dislikes']) && is_numeric($data['dislikes'])) {
+        return (int)$data['dislikes'];
+    }
+    
+    return 0;
+}
+
 // =============================================
 // Objects builders
 // =============================================
@@ -1031,7 +1068,6 @@ function handle_watch($params) {
     $cacheKey = 'watch_' . $videoId;
     if ($cached = cache_get($cacheKey)) return $cached;
 
-    // Получаем информацию о видео
     $videoData = youtube_api('videos', [
         'part' => 'snippet,statistics,contentDetails',
         'id' => $videoId
@@ -1048,7 +1084,7 @@ function handle_watch($params) {
     $isLive = ($snippet['liveBroadcastContent'] ?? 'none') === 'live';
     $viewCount = $statistics['viewCount'] ?? 0;
     $likeCount = $statistics['likeCount'] ?? 0;
-    $dislikeCount = $statistics['dislikeCount'] ?? 0;
+    $dislikeCount = get_dislike_count($videoId);
     $commentCount = isset($statistics['commentCount']) ? (int)$statistics['commentCount'] : 0;
 
     $channelId = $snippet['channelId'];
