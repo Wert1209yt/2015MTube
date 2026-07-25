@@ -10,7 +10,7 @@ This project revives the YouTube mobile web client (m.youtube.com) by recreating
 - What API for getting information
   - YouTube Data API v3
 - What working
-  - Watch, Search, Channels, Playlists, AJAX (WIP)
+  - Watch, Search, Channels, Playlists, AJAX
 
 This project in developing, but you can contribute
 

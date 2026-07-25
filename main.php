@@ -1524,7 +1524,6 @@ function handle_guide_ajax($params) {
     $cacheKey = 'guide_ajax';
     if ($cached = cache_get($cacheKey)) return $cached;
 
-    // Формируем ответ для гида
     $response = [
         'result' => 'ok',
         'conn' => 'wifi',
@@ -1533,36 +1532,77 @@ function handle_guide_ajax($params) {
         'build_id' => 0,
         'content' => [
             'innertube_guide_response' => [
+                'footer' => null,
                 'items' => [
-                    // Раздел "Каналы" (подписки)
                     [
-                        'item_type' => 'guide_subscriptions_section',
+                        'item_type' => 'guide_section',
                         'formatted_title' => [
                             'item_type' => 'formatted_string',
-                            'runs' => [['text' => 'Subscriptions']]
+                            'runs' => []
                         ],
                         'items' => [
-                            // Пример канала 1
                             [
                                 'item_type' => 'guide_entry',
                                 'formatted_title' => [
                                     'item_type' => 'formatted_string',
-                                    'runs' => [['text' => 'Popular on YouTube']]
+                                    'runs' => [['text' => 'Home']]
                                 ],
                                 'navigation_endpoint' => [
-                                    'click_tracking_params' => 'IhMIzezrzOjgxQIVw7R+Ch38bgAL',
-                                    'url' => '/channel/UCF0pVplsI8R5kcAqgtoRqoA'
+                                    'url' => '/',
+                                    '_command_type' => 'generic_url',
+                                    'click_tracking_params' => random_ctp()
                                 ],
-                                'thumbnail' => [
-                                    'url' => '//i.ytimg.com/i/F0pVplsI8R5kcAqgtoRqoA/1.jpg',
-                                    'posy' => 0,
-                                    'posx' => 0,
-                                    'stitched' => 0,
-                                    'thumb_width' => 28,
-                                    'thumb_height' => 28
-                                ]
+                                'thumbnail' => []
                             ],
-                            // Пример канала 2
+                            [
+                                'item_type' => 'guide_entry',
+                                'formatted_title' => [
+                                    'item_type' => 'formatted_string',
+                                    'runs' => [['text' => 'Trending']]
+                                ],
+                                'navigation_endpoint' => [
+                                    'url' => '/feed/trending',
+                                    '_command_type' => 'generic_url',
+                                    'click_tracking_params' => random_ctp()
+                                ],
+                                'thumbnail' => []
+                            ],
+                            [
+                                'item_type' => 'guide_entry',
+                                'formatted_title' => [
+                                    'item_type' => 'formatted_string',
+                                    'runs' => [['text' => 'History']]
+                                ],
+                                'navigation_endpoint' => [
+                                    'url' => '/feed/history',
+                                    '_command_type' => 'generic_url',
+                                    'click_tracking_params' => random_ctp()
+                                ],
+                                'thumbnail' => []
+                            ],
+                            [
+                                'item_type' => 'guide_entry',
+                                'formatted_title' => [
+                                    'item_type' => 'formatted_string',
+                                    'runs' => [['text' => 'Get YouTube Red']]
+                                ],
+                                'navigation_endpoint' => [
+                                    'url' => '/red',
+                                    '_command_type' => 'generic_url',
+                                    'click_tracking_params' => random_ctp()
+                                ],
+                                'thumbnail' => []
+                            ]
+                        ]
+                    ],
+
+                    [
+                        'item_type' => 'guide_section',
+                        'formatted_title' => [
+                            'item_type' => 'formatted_string',
+                            'runs' => [['text' => 'Best of YouTube']]
+                        ],
+                        'items' => [
                             [
                                 'item_type' => 'guide_entry',
                                 'formatted_title' => [
@@ -1570,19 +1610,19 @@ function handle_guide_ajax($params) {
                                     'runs' => [['text' => 'Music']]
                                 ],
                                 'navigation_endpoint' => [
-                                    'click_tracking_params' => 'IhMIzezrzOjgxQIVw7R+Ch38bgAL',
-                                    'url' => '/channel/UC-9-kyTW8ZkZNDHQJ6FgpwQ'
+                                    'url' => '/channel/UC-9-kyTW8ZkZNDHQJ6FgpwQ',
+                                    '_command_type' => 'generic_url',
+                                    'click_tracking_params' => random_ctp()
                                 ],
                                 'thumbnail' => [
                                     'url' => '//i.ytimg.com/i/-9-kyTW8ZkZNDHQJ6FgpwQ/1.jpg',
-                                    'posy' => 0,
+                                    'thumb_width' => 0,
+                                    'thumb_height' => 0,
                                     'posx' => 0,
-                                    'stitched' => 0,
-                                    'thumb_width' => 28,
-                                    'thumb_height' => 28
+                                    'posy' => 0,
+                                    'stitched' => 0
                                 ]
                             ],
-
                             [
                                 'item_type' => 'guide_entry',
                                 'formatted_title' => [
@@ -1590,19 +1630,19 @@ function handle_guide_ajax($params) {
                                     'runs' => [['text' => 'Sports']]
                                 ],
                                 'navigation_endpoint' => [
-                                    'click_tracking_params' => 'IhMIzezrzOjgxQIVw7R+Ch38bgAL',
-                                    'url' => '/channel/UCEgdi0XIXXZ-qJOFPf4JSKw'
+                                    'url' => '/channel/UCEgdi0XIXXZ-qJOFPf4JSKw',
+                                    '_command_type' => 'generic_url',
+                                    'click_tracking_params' => random_ctp()
                                 ],
                                 'thumbnail' => [
                                     'url' => '//i.ytimg.com/i/Egdi0XIXXZ-qJOFPf4JSKw/1.jpg',
-                                    'posy' => 0,
+                                    'thumb_width' => 0,
+                                    'thumb_height' => 0,
                                     'posx' => 0,
-                                    'stitched' => 0,
-                                    'thumb_width' => 28,
-                                    'thumb_height' => 28
+                                    'posy' => 0,
+                                    'stitched' => 0
                                 ]
                             ],
-                            // Пример канала 4
                             [
                                 'item_type' => 'guide_entry',
                                 'formatted_title' => [
@@ -1610,136 +1650,167 @@ function handle_guide_ajax($params) {
                                     'runs' => [['text' => 'Gaming']]
                                 ],
                                 'navigation_endpoint' => [
-                                    'click_tracking_params' => 'IhMIzezrzOjgxQIVw7R+Ch38bgAL',
-                                    'url' => '/channel/UCOpNcN46UbXVtpKMrmU4Abg'
+                                    'url' => '/channel/UCOpNcN46UbXVtpKMrmU4Abg',
+                                    '_command_type' => 'generic_url',
+                                    'click_tracking_params' => random_ctp()
                                 ],
                                 'thumbnail' => [
                                     'url' => '//i.ytimg.com/i/OpNcN46UbXVtpKMrmU4Abg/1.jpg',
-                                    'posy' => 0,
+                                    'thumb_width' => 0,
+                                    'thumb_height' => 0,
                                     'posx' => 0,
-                                    'stitched' => 0,
-                                    'thumb_width' => 28,
-                                    'thumb_height' => 28
+                                    'posy' => 0,
+                                    'stitched' => 0
+                                ]
+                            ],
+                            [
+                                'item_type' => 'guide_entry',
+                                'formatted_title' => [
+                                    'item_type' => 'formatted_string',
+                                    'runs' => [['text' => 'Films']]
+                                ],
+                                'navigation_endpoint' => [
+                                    'url' => '/channel/UClgRkhTL3_hImCAmdLfDE4g',
+                                    '_command_type' => 'generic_url',
+                                    'click_tracking_params' => random_ctp()
+                                ],
+                                'thumbnail' => [
+                                    'url' => '//i.ytimg.com/i/lgRkhTL3_hImCAmdLfDE4g/1.jpg',
+                                    'thumb_width' => 0,
+                                    'thumb_height' => 0,
+                                    'posx' => 0,
+                                    'posy' => 0,
+                                    'stitched' => 0
+                                ]
+                            ],
+                            [
+                                'item_type' => 'guide_entry',
+                                'formatted_title' => [
+                                    'item_type' => 'formatted_string',
+                                    'runs' => [['text' => 'TV Shows']]
+                                ],
+                                'navigation_endpoint' => [
+                                    'url' => '/channel/UCl8dMTqDrJQ0c8y23UBu4kQ',
+                                    '_command_type' => 'generic_url',
+                                    'click_tracking_params' => random_ctp()
+                                ],
+                                'thumbnail' => [
+                                    'url' => 'https://yt3.ggpht.com/-hFxEr8QHrvM/AAAAAAAAAAI/AAAAAAAAAAA/REjjL0X3gIs/s88-c-k-no-mo-rj-c0xffffff/photo.jpg',
+                                    'thumb_width' => 0,
+                                    'thumb_height' => 0,
+                                    'posx' => 0,
+                                    'posy' => 0,
+                                    'stitched' => 0
+                                ]
+                            ],
+                            [
+                                'item_type' => 'guide_entry',
+                                'formatted_title' => [
+                                    'item_type' => 'formatted_string',
+                                    'runs' => [['text' => 'News']]
+                                ],
+                                'navigation_endpoint' => [
+                                    'url' => '/channel/UCYfdidRxbB8Qhf0Nx7ioOYw',
+                                    '_command_type' => 'generic_url',
+                                    'click_tracking_params' => random_ctp()
+                                ],
+                                'thumbnail' => [
+                                    'url' => '//i.ytimg.com/i/YfdidRxbB8Qhf0Nx7ioOYw/1.jpg',
+                                    'thumb_width' => 0,
+                                    'thumb_height' => 0,
+                                    'posx' => 0,
+                                    'posy' => 0,
+                                    'stitched' => 0
+                                ]
+                            ],
+                            [
+                                'item_type' => 'guide_entry',
+                                'formatted_title' => [
+                                    'item_type' => 'formatted_string',
+                                    'runs' => [['text' => 'Live']]
+                                ],
+                                'navigation_endpoint' => [
+                                    'url' => '/channel/UC4R8DWoMoI7CAwX8_LjQHig',
+                                    '_command_type' => 'generic_url',
+                                    'click_tracking_params' => random_ctp()
+                                ],
+                                'thumbnail' => [
+                                    'url' => '//i.ytimg.com/i/4R8DWoMoI7CAwX8_LjQHig/1.jpg',
+                                    'thumb_width' => 0,
+                                    'thumb_height' => 0,
+                                    'posx' => 0,
+                                    'posy' => 0,
+                                    'stitched' => 0
+                                ]
+                            ],
+                            [
+                                'item_type' => 'guide_entry',
+                                'formatted_title' => [
+                                    'item_type' => 'formatted_string',
+                                    'runs' => [['text' => 'Spotlight']]
+                                ],
+                                'navigation_endpoint' => [
+                                    'url' => '/channel/UCBR8-60-B28hp2BmDPdntcQ',
+                                    '_command_type' => 'generic_url',
+                                    'click_tracking_params' => random_ctp()
+                                ],
+                                'thumbnail' => [
+                                    'url' => 'https://yt3.ggpht.com/-dL2jeHlm2Ok/AAAAAAAAAAI/AAAAAAAAAAA/ZCMMkRj-hrw/s88-c-k-no-mo-rj-c0xffffff/photo.jpg',
+                                    'thumb_width' => 0,
+                                    'thumb_height' => 0,
+                                    'posx' => 0,
+                                    'posy' => 0,
+                                    'stitched' => 0
+                                ]
+                            ],
+                            [
+                                'item_type' => 'guide_entry',
+                                'formatted_title' => [
+                                    'item_type' => 'formatted_string',
+                                    'runs' => [['text' => '360° Video']]
+                                ],
+                                'navigation_endpoint' => [
+                                    'url' => '/channel/UCzuqhhs6NWbgTzMuM09WKDQ',
+                                    '_command_type' => 'generic_url',
+                                    'click_tracking_params' => random_ctp()
+                                ],
+                                'thumbnail' => [
+                                    'url' => '//i.ytimg.com/i/zuqhhs6NWbgTzMuM09WKDQ/1.jpg',
+                                    'thumb_width' => 0,
+                                    'thumb_height' => 0,
+                                    'posx' => 0,
+                                    'posy' => 0,
+                                    'stitched' => 0
                                 ]
                             ]
                         ]
                     ],
-                    // Раздел "Главное меню"
+
                     [
                         'item_type' => 'guide_section',
                         'formatted_title' => [
                             'item_type' => 'formatted_string',
-                            'runs' => [['text' => '']]
+                            'runs' => []
                         ],
                         'items' => [
                             [
-                                'item_type' => 'guide_collection_entry',
+                                'item_type' => 'guide_entry',
                                 'formatted_title' => [
                                     'item_type' => 'formatted_string',
-                                    'runs' => [['text' => 'Home']]
+                                    'runs' => [['text' => 'Browse channels']]
                                 ],
                                 'navigation_endpoint' => [
-                                    'click_tracking_params' => 'IhMIzezrzOjgxQIVw7R+Ch38bgAL',
-                                    'url' => '/'
+                                    'url' => '/channels',
+                                    '_command_type' => 'generic_url',
+                                    'click_tracking_params' => random_ctp()
                                 ],
                                 'thumbnail' => [
-                                    'url' => '',
-                                    'posy' => 0,
+                                    'url' => '//s.ytimg.com/yts/img/innertube/guide/add_channel_guide-vflSJDanE.png',
+                                    'thumb_width' => 35,
+                                    'thumb_height' => 35,
                                     'posx' => 0,
-                                    'stitched' => 0,
-                                    'thumb_width' => 28,
-                                    'thumb_height' => 28
-                                ],
-                                'icon' => [
-                                    'sprite_name' => 'tab_home_selected'
-                                ]
-                            ],
-                            [
-                                'item_type' => 'guide_collection_entry',
-                                'formatted_title' => [
-                                    'item_type' => 'formatted_string',
-                                    'runs' => [['text' => 'Trending']]
-                                ],
-                                'navigation_endpoint' => [
-                                    'click_tracking_params' => 'IhMIzezrzOjgxQIVw7R+Ch38bgAL',
-                                    'url' => '/feed/trending'
-                                ],
-                                'thumbnail' => [
-                                    'url' => '',
-                                    'posy' => 0,
-                                    'posx' => 0,
-                                    'stitched' => 0,
-                                    'thumb_width' => 28,
-                                    'thumb_height' => 28
-                                ],
-                                'icon' => [
-                                    'sprite_name' => 'tab_trending'
-                                ]
-                            ],
-                            [
-                                'item_type' => 'guide_collection_entry',
-                                'formatted_title' => [
-                                    'item_type' => 'formatted_string',
-                                    'runs' => [['text' => 'Subscriptions']]
-                                ],
-                                'navigation_endpoint' => [
-                                    'click_tracking_params' => 'IhMIzezrzOjgxQIVw7R+Ch38bgAL',
-                                    'url' => '/feed/subscriptions'
-                                ],
-                                'thumbnail' => [
-                                    'url' => '',
-                                    'posy' => 0,
-                                    'posx' => 0,
-                                    'stitched' => 0,
-                                    'thumb_width' => 28,
-                                    'thumb_height' => 28
-                                ],
-                                'icon' => [
-                                    'sprite_name' => 'tab_subscriptions'
-                                ]
-                            ],
-                            [
-                                'item_type' => 'guide_collection_entry',
-                                'formatted_title' => [
-                                    'item_type' => 'formatted_string',
-                                    'runs' => [['text' => 'History']]
-                                ],
-                                'navigation_endpoint' => [
-                                    'click_tracking_params' => 'IhMIzezrzOjgxQIVw7R+Ch38bgAL',
-                                    'url' => '/feed/history'
-                                ],
-                                'thumbnail' => [
-                                    'url' => '',
-                                    'posy' => 0,
-                                    'posx' => 0,
-                                    'stitched' => 0,
-                                    'thumb_width' => 28,
-                                    'thumb_height' => 28
-                                ],
-                                'icon' => [
-                                    'sprite_name' => 'watch_history'
-                                ]
-                            ],
-                            [
-                                'item_type' => 'guide_collection_entry',
-                                'formatted_title' => [
-                                    'item_type' => 'formatted_string',
-                                    'runs' => [['text' => 'Watch Later']]
-                                ],
-                                'navigation_endpoint' => [
-                                    'click_tracking_params' => 'IhMIzezrzOjgxQIVw7R+Ch38bgAL',
-                                    'url' => '/playlist?list=WL'
-                                ],
-                                'thumbnail' => [
-                                    'url' => '',
-                                    'posy' => 0,
-                                    'posx' => 0,
-                                    'stitched' => 0,
-                                    'thumb_width' => 28,
-                                    'thumb_height' => 28
-                                ],
-                                'icon' => [
-                                    'sprite_name' => 'watch_later'
+                                    'posy' => 7,
+                                    'stitched' => 0
                                 ]
                             ]
                         ]
