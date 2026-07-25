@@ -29,7 +29,12 @@ function cache_get($key) {
     }
     return null;
 }
+
 function cache_set($key, $data) {
+    if (!is_dir(CACHE_DIR)) {
+        mkdir(CACHE_DIR, 0755, true);
+    }
+
     $file = CACHE_DIR . md5($key) . '.json';
     file_put_contents($file, json_encode($data));
 }
@@ -502,12 +507,84 @@ function handle_results($params) {
 }
 
 // =============================================
-// Channel controller, WIP
+// Channel controller
 // =============================================
 function handle_browse($params) {
     $browseId = $params['browse_id'] ?? '';
     if (!$browseId) {
         return ['result' => 'error', 'message' => 'Missing browse_id'];
+    }
+
+    if (isset($params['ctoken'])) {
+        $pageToken = base64_decode($params['ctoken']);
+        $searchParams = [
+            'part' => 'snippet',
+            'channelId' => $browseId,
+            'type' => 'video',
+            'order' => 'date',
+            'maxResults' => 20,
+            'pageToken' => $pageToken
+        ];
+        $searchData = youtube_api('search', $searchParams);
+        $videoItems = $searchData['items'] ?? [];
+        $nextPageToken = $searchData['nextPageToken'] ?? null;
+
+        $videoIds = array_filter(array_map(function($i) { return $i['id']['videoId'] ?? null; }, $videoItems));
+        $videoDetails = [];
+        if (!empty($videoIds)) {
+            $details = youtube_api('videos', ['part' => 'contentDetails,statistics', 'id' => implode(',', $videoIds)]);
+            foreach ($details['items'] ?? [] as $v) {
+                $videoDetails[$v['id']] = [
+                    'duration' => iso8601_to_seconds($v['contentDetails']['duration']),
+                    'viewCount' => $v['statistics']['viewCount'] ?? 0
+                ];
+            }
+        }
+
+        $videos = [];
+        foreach ($videoItems as $item) {
+            $vid = $item['id']['videoId'] ?? null;
+            if (!$vid) continue;
+            $d = $videoDetails[$vid] ?? ['duration' => 0, 'viewCount' => 0];
+            $thumbnails = $item['snippet']['thumbnails'] ?? [];
+            $thumbUrl = $thumbnails['default']['url'] ?? $thumbnails['medium']['url'] ?? '';
+            $videos[] = build_compact_video(
+                $vid,
+                $item['snippet']['title'] ?? 'Untitled',
+                $item['snippet']['channelTitle'] ?? 'Unknown',
+                $thumbUrl,
+                $d['duration'],
+                $d['viewCount'],
+                false
+            );
+        }
+
+        $section = [
+            'item_type' => 'item_section',
+            'contents' => $videos,
+            'continuations' => []
+        ];
+        if ($nextPageToken) {
+            $section['continuations'][] = [
+                'item_type' => 'next_continuation_data',
+                'click_tracking_params' => random_ctp(),
+                'continuation' => base64_encode($nextPageToken)
+            ];
+        }
+
+        $response = [
+            'result' => 'ok',
+            'conn' => 'wifi',
+            'build_signature' => 'en:0',
+            'signed_in_username' => '',
+            'build_id' => 0,
+            'content' => [
+                'continuation_contents' => $section
+            ]
+        ];
+        header('Content-Type: application/json; charset=utf-8');
+        echo ")]}'" . json_encode($response);
+        exit;
     }
 
     $cacheKey = 'browse_' . $browseId . '_' . ($params['tab'] ?? 'home');
@@ -524,14 +601,13 @@ function handle_browse($params) {
     $channel = $channelData['items'][0];
     $snippet = $channel['snippet'];
     $statistics = $channel['statistics'];
-    $branding = $channel['brandingSettings']['channel'] ?? [];
+    $branding = $channel['brandingSettings'] ?? [];
 
-    $selectedTab = $params['tab'] ?? 'home'; // по умолчанию Home
+    $selectedTab = $params['tab'] ?? 'home';
     $subscriberCount = (int)($statistics['subscriberCount'] ?? 0);
     $viewCount = (int)($statistics['viewCount'] ?? 0);
     $videoCount = (int)($statistics['videoCount'] ?? 0);
 
-    // --- Получение видео канала (первые 20) ---
     $searchParams = [
         'part' => 'snippet',
         'channelId' => $browseId,
@@ -539,24 +615,14 @@ function handle_browse($params) {
         'order' => 'date',
         'maxResults' => 20
     ];
-    if (isset($params['action_continuation'])) {
-        $searchParams['pageToken'] = base64_decode($params['action_continuation']);
-    }
     $searchData = youtube_api('search', $searchParams);
     $videoItems = $searchData['items'] ?? [];
     $nextPageToken = $searchData['nextPageToken'] ?? null;
 
-    // Детали видео
-    $videoIds = array_filter(array_map(function($i) {
-        return $i['id']['videoId'] ?? null;
-    }, $videoItems));
-
+    $videoIds = array_filter(array_map(function($i) { return $i['id']['videoId'] ?? null; }, $videoItems));
     $videoDetails = [];
     if (!empty($videoIds)) {
-        $details = youtube_api('videos', [
-            'part' => 'contentDetails,statistics',
-            'id' => implode(',', $videoIds)
-        ]);
+        $details = youtube_api('videos', ['part' => 'contentDetails,statistics', 'id' => implode(',', $videoIds)]);
         foreach ($details['items'] ?? [] as $v) {
             $videoDetails[$v['id']] = [
                 'duration' => iso8601_to_seconds($v['contentDetails']['duration']),
@@ -565,7 +631,7 @@ function handle_browse($params) {
         }
     }
 
-    // Строим список видео (объекты compact_video)
+    // all videos
     $allVideos = [];
     foreach ($videoItems as $item) {
         $vid = $item['id']['videoId'] ?? null;
@@ -584,7 +650,7 @@ function handle_browse($params) {
         );
     }
 
-    // --- Плейлисты канала ---
+    // channel playlists
     $playlistItems = [];
     $playlistsData = youtube_api('playlists', [
         'part' => 'snippet,contentDetails',
@@ -612,32 +678,23 @@ function handle_browse($params) {
         }
     }
 
-    // --- Формирование полок для главной вкладки ---
+    // shelves for home
     $homeVideos = array_slice($allVideos, 0, 10);
     $homePlaylists = array_slice($playlistItems, 0, 5);
 
     $shelfVideos = build_shelf('Videos', $homeVideos);
     $shelfPlaylists = build_shelf('Playlists', $homePlaylists);
 
-    // Содержимое для главной вкладки (section_list)
     $homeSectionList = [
         'item_type' => 'section_list',
         'contents' => [
-            [
-                'item_type' => 'item_section',
-                'contents' => [$shelfVideos],
-                'continuations' => []
-            ],
-            [
-                'item_type' => 'item_section',
-                'contents' => [$shelfPlaylists],
-                'continuations' => []
-            ]
+            ['item_type' => 'item_section', 'contents' => [$shelfVideos], 'continuations' => []],
+            ['item_type' => 'item_section', 'contents' => [$shelfPlaylists], 'continuations' => []]
         ],
         'continuations' => []
     ];
 
-    // --- Содержимое для вкладки "Videos" (полный список) ---
+    // videos
     $videoSection = [
         'item_type' => 'item_section',
         'contents' => $allVideos,
@@ -656,7 +713,7 @@ function handle_browse($params) {
         'continuations' => []
     ];
 
-    // --- Содержимое для вкладки "Playlists" (полный список) ---
+    // playlists
     $playlistContent = null;
     if (!empty($playlistItems)) {
         $playlistSection = [
@@ -671,45 +728,45 @@ function handle_browse($params) {
         ];
     }
 
-    // --- Вкладки (tab_settings.available_tabs) ---
+    // tabs
     $tabs = [];
-
-    // 1. Главная (Home)
     $tabs[] = [
+        'item_type' => 'tab',
         'title' => 'Home',
         'selected' => ($selectedTab === 'home'),
         'content' => $homeSectionList,
-        'endpoint' => [
-            'click_tracking_params' => random_ctp(),
-            'url' => '/browse?browse_id=' . $browseId . '&tab=home'
-        ]
+        'endpoint' => ['click_tracking_params' => random_ctp(), 'url' => '/browse?browse_id=' . $browseId . '&tab=home']
     ];
-
-    // 2. Видео (Videos)
     $tabs[] = [
+        'item_type' => 'tab',
         'title' => 'Videos',
         'selected' => ($selectedTab === 'videos'),
         'content' => $videoContent,
-        'endpoint' => [
-            'click_tracking_params' => random_ctp(),
-            'url' => '/browse?browse_id=' . $browseId . '&tab=videos'
-        ]
+        'endpoint' => ['click_tracking_params' => random_ctp(), 'url' => '/browse?browse_id=' . $browseId . '&tab=videos']
     ];
-
-    // 3. Плейлисты (если есть)
     if (!empty($playlistItems)) {
         $tabs[] = [
+            'item_type' => 'tab',
             'title' => 'Playlists',
             'selected' => ($selectedTab === 'playlists'),
             'content' => $playlistContent,
-            'endpoint' => [
-                'click_tracking_params' => random_ctp(),
-                'url' => '/browse?browse_id=' . $browseId . '&tab=playlists'
-            ]
+            'endpoint' => ['click_tracking_params' => random_ctp(), 'url' => '/browse?browse_id=' . $browseId . '&tab=playlists']
         ];
     }
 
-    // --- Хедер канала (channel_header) ---
+    // channel header
+    $brandingImage = $branding['image'] ?? [];
+    $bannerUrl = $brandingImage['bannerExternalUrl'] ?? '';
+    $bannerMobile = $brandingImage['bannerMobileExtraHdImageUrl'] ?? 
+                    $brandingImage['bannerMobileHdImageUrl'] ?? 
+                    $brandingImage['bannerMobileMediumImageUrl'] ?? '';
+    $bannerImage = $bannerMobile ?: $bannerUrl;
+    
+    $hasBanner = !empty($brandingImage['bannerExternalUrl']) || 
+                    !empty($brandingImage['bannerMobileExtraHdImageUrl']) ||
+                    !empty($brandingImage['bannerMobileHdImageUrl']) ||
+                    !empty($brandingImage['bannerMobileMediumImageUrl']);
+
     $xsrfToken = 'QUFFLUhqa2NMbUdKTDZlZWl4aFBIVnQwN3FyTmc2M0hwQXxBQ3Jtc0trX044MG5iMHl6T0VLU1ljSUJ2dzB5a2ExX0Z2b1M3UjBmcVZpdXNoWVZEbjNQNjJYMUZEalJOOVIzR3RNdzZSQmxtWjBKWHhueDNzZXQ4QVNkcUZaRlg2Vno2TVhIaURwVWlyYmxEbHJYdllqOXRBRjBKc3NRV2lPUTZaZ0MtMjJDVkFXTnJaTllYZVZFNm1fUFNsWk5jbDlUbEE=';
 
     $header = [
@@ -726,19 +783,7 @@ function handle_browse($params) {
             'thumb_width' => 88,
             'thumb_height' => 88
         ],
-        'banner' => [
-            'url' => $branding['bannerExternalUrl'] ?? '',
-            'width' => 1280,
-            'height' => 270,
-            'posy' => 0,
-            'posx' => 0,
-            'stitched' => 0,
-            'thumb_width' => 1280,
-            'thumb_height' => 270
-        ],
         'channel_url' => '/channel/' . $browseId,
-        'banner_image' => $branding['bannerExternalUrl'] ?? '',
-        'banner_image_hd' => $branding['bannerExternalUrl'] ?? '',
         'subscriber_count' => $subscriberCount,
         'subscribe_button' => [
             'item_type' => 'subscribe_button',
@@ -754,19 +799,13 @@ function handle_browse($params) {
                     '_service_endpoint_type' => 'subscribe',
                     'url' => '/subscription_service?action_subscribe=1',
                     'click_tracking_params' => random_ctp(),
-                    'params' => [
-                        'session_token' => $xsrfToken,
-                        'channel_ids' => $browseId
-                    ]
+                    'params' => ['session_token' => $xsrfToken, 'channel_ids' => $browseId]
                 ],
                 [
                     '_service_endpoint_type' => 'unsubscribe',
                     'url' => '/subscription_service?action_unsubscribe=1',
                     'click_tracking_params' => random_ctp(),
-                    'params' => [
-                        'session_token' => $xsrfToken,
-                        'channel_ids' => $browseId
-                    ]
+                    'params' => ['session_token' => $xsrfToken, 'channel_ids' => $browseId]
                 ]
             ],
             'type' => 'free',
@@ -778,15 +817,36 @@ function handle_browse($params) {
         'analytics_id' => '',
         'description' => $snippet['description'] ?? ''
     ];
+    
+    if ($hasBanner && !empty($bannerImage)) {
+       $header['banner_image'] = [
+           'url' => $bannerImage,
+           'width' => 1280,
+           'height' => 270,
+           'posy' => 0,
+           'posx' => 0,
+           'stitched' => 0,
+           'thumb_width' => 1280,
+           'thumb_height' => 270
+        ];
+        $header['banner_image_hd'] = [
+            'url' => $bannerImage,
+            'width' => 2560,
+            'height' => 540,
+            'posy' => 0,
+            'posx' => 0,
+            'stitched' => 0,
+            'thumb_width' => 2560,
+            'thumb_height' => 540
+        ];
+    }
 
-    // --- Metadata ---
     $metadata = [
         'tracking_image_url' => '',
         'channel_conversion_url' => '',
         'analytics_id' => ''
     ];
 
-    // --- Ответ ---
     $response = [
         'result' => 'ok',
         'conn' => 'wifi',
@@ -797,9 +857,7 @@ function handle_browse($params) {
             'browse_id' => $browseId,
             'header' => $header,
             'metadata' => $metadata,
-            'tab_settings' => [
-                'available_tabs' => $tabs
-            ]
+            'tab_settings' => ['available_tabs' => $tabs]
         ]
     ];
 

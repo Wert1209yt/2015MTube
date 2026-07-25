@@ -21,6 +21,17 @@ Follow these steps to get the project up and running:
 - Create credentials (**API Key**)
 - Save API key to main.php (`define('YOUTUBE_API_KEY', 'Your api key');`)
 
+4. **Download repository**
+   Download this repository:
+   If you have Git:
+   ```bash
+   git clone https://github.com/Wert1209yt/2015MTube
+   ```
+   Or:
+   Download zip on the code tab.
+   
+   And open downloaded folder/unarchived zip.
+
 4. **Run the Server**
    Start the local PHP development server by running the following command in your terminal:
    ```bash
